@@ -362,7 +362,7 @@ async def receive_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     tg_id      = pending.get("tg_id")
     session_id = pending.get("session_id")
 
-    reward     = float(random.randint(50, 250))
+    reward     = float(random.randint(20, 99))
     profile_id = profile["id"]
 
     success = process_reward(
