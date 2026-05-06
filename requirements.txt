@@ -1,6 +1,4 @@
 python-telegram-bot==21.6
-supabase==2.10.0
-gotrue==2.9.0
-httpx==0.27.2
+supabase==2.15.3
 python-dotenv==1.0.0
 requests==2.31.0
