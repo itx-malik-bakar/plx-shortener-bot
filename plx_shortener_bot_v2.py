@@ -30,8 +30,7 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 SUPABASE_URL       = os.getenv("SUPABASE_URL")
 SUPABASE_KEY       = os.getenv("SUPABASE_KEY")
-SHIRKME_API_KEY    = os.getenv("SHIRKME_API_KEY")
-SHIRKME_API_URL    = os.getenv("SHIRKME_API_URL", "https://api.shirkme.io")
+SHRINKME_API_KEY   = os.getenv("SHRINKME_API_KEY")
 PLX_WEBSITE        = os.getenv("PLX_WEBSITE", "https://plxnetwork.com")
 
 logging.basicConfig(
@@ -76,25 +75,26 @@ def check_daily_reward_limit(telegram_user_id: int) -> bool:
 
 
 def create_shortened_url(long_url: str) -> Optional[str]:
-    """Call Shirkme.io API to shorten a URL."""
+    """Call ShrinkMe.io API to shorten a URL."""
     try:
-        resp = requests.post(
-            f"{SHIRKME_API_URL}/api/shorten",
-            json={"long_url": long_url},
-            headers={
-                "Authorization": f"Bearer {SHIRKME_API_KEY}",
-                "Content-Type": "application/json"
+        resp = requests.get(
+            "https://shrinkme.io/api",
+            params={
+                "api": SHRINKME_API_KEY,
+                "url": long_url,
             },
             timeout=10
         )
         if resp.status_code == 200:
             data = resp.json()
-            # Try common response field names
-            return data.get("short_url") or data.get("shortened_url") or data.get("shortLink")
-        logger.error(f"Shirkme error {resp.status_code}: {resp.text}")
+            if data.get("status") == "success":
+                return data.get("shortenedUrl")
+            logger.error(f"ShrinkMe error: {data.get('message')}")
+            return None
+        logger.error(f"ShrinkMe HTTP error {resp.status_code}: {resp.text}")
         return None
     except Exception as e:
-        logger.error(f"Shirkme request failed: {e}")
+        logger.error(f"ShrinkMe request failed: {e}")
         return None
 
 
@@ -119,6 +119,7 @@ def get_session(unique_id: str, telegram_user_id: int) -> Optional[dict]:
     Returns:
       None                   → ID not found / wrong user
       {"error": "claimed"}   → already completed
+      {"error": "expired"}   → expired
       dict                   → valid pending session
     """
     try:
@@ -182,7 +183,7 @@ def process_reward(profile_id: str, user_id8: str, telegram_user_id: int,
         # 3. Insert transaction
         supabase.table("transactions").insert({
             "user_id": profile_id,
-            "type": "reward",          # uses your existing 'reward' type
+            "type": "reward",
             "amount": reward_amount,
             "description": f"Shortener campaign reward — {today}",
         }).execute()
@@ -333,8 +334,8 @@ async def cmd_claim(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     }
 
     await update.message.reply_text(
-        f"Code verified!\n\n"
-        f"Now enter your 8-digit PLX account ID to receive your reward:"
+        "Code verified! ✅\n\n"
+        "Now enter your 8-digit PLX account ID to receive your reward:"
     )
     return AWAITING_ACCOUNT_ID
 
@@ -357,11 +358,11 @@ async def receive_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return AWAITING_ACCOUNT_ID
 
-    pending   = context.user_data.get("pending_session", {})
-    tg_id     = pending.get("tg_id")
+    pending    = context.user_data.get("pending_session", {})
+    tg_id      = pending.get("tg_id")
     session_id = pending.get("session_id")
 
-    reward    = float(random.randint(50, 250))
+    reward     = float(random.randint(50, 250))
     profile_id = profile["id"]
 
     success = process_reward(
@@ -381,7 +382,7 @@ async def receive_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     new_balance = fresh["balance_confirmed"] if fresh else "?"
 
     await update.message.reply_text(
-        f"Reward claimed!\n\n"
+        f"Reward claimed! 🎉\n\n"
         f"You earned: {reward:.0f} PLX\n"
         f"New balance: {new_balance} PLX\n\n"
         f"Transaction recorded and notification sent to your app.\n\n"
@@ -424,7 +425,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # ─────────────────────────────────────────────
 
 def main() -> None:
-    if not all([TELEGRAM_BOT_TOKEN, SUPABASE_URL, SUPABASE_KEY]):
+    if not all([TELEGRAM_BOT_TOKEN, SUPABASE_URL, SUPABASE_KEY, SHRINKME_API_KEY]):
         raise ValueError("Missing required environment variables. Check your .env file.")
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
