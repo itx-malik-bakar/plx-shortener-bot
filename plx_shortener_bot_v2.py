@@ -35,8 +35,8 @@ SHRINKME_API_KEY   = os.getenv("SHRINKME_API_KEY")
 PLX_WEBSITE        = os.getenv("PLX_WEBSITE", "https://plxnetwork.com")
 
 # ── Reward range — only change these two numbers ──
-REWARD_MIN = 50
-REWARD_MAX = 250
+REWARD_MIN = 20
+REWARD_MAX = 120
 # ─────────────────────────────────────────────────
 
 COOLDOWN_HOURS = 24   # hours between link generations
